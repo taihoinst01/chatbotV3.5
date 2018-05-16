@@ -20,6 +20,7 @@ using System.IO;
 using System.Text;
 using Newtonsoft.Json;
 using Microsoft.Bot.Builder.ConnectorEx;
+using TimeSolution.Controllers;
 
 namespace TimeSolution
 {
@@ -80,8 +81,65 @@ namespace TimeSolution
 
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
         {
+			//수정시작 
+			if (activity != null)
+			{
+				try
+				{
+					switch (activity.GetActivityType())
+					{
+						case ActivityTypes.Message:
+							activity.Text = activity.RemoveRecipientMention();
+							await Conversation.SendAsync(activity, () => new ProactiveBusiness());
+							break;
+						case ActivityTypes.Trigger:
+							ITriggerActivity trigger = (ITriggerActivity)activity;
+							var message = JsonConvert.DeserializeObject<QueueMessage>(((JObject)trigger.Value).GetValue("Message").ToString());
+							if (!string.IsNullOrEmpty(message.MessageText))
+							{
+								var messageactivity = (Activity)message.ResumptionCookie.GetMessage();
 
-            string cashOrgMent = "";
+								var client = new ConnectorClient(new Uri(messageactivity.ServiceUrl));
+								activity.Text = activity.RemoveRecipientMention();
+
+								Activity replyToConversation = messageactivity.CreateReply();
+								replyToConversation.Recipient = activity.From;
+								replyToConversation.Type = "message";
+
+								replyToConversation.Attachments = new List<Attachment>();
+								List<CardImage> cardImages = new List<CardImage>();
+								cardImages.Add(new CardImage(url: " http://cdn.wonderfulengineering.com/wp-content/uploads/2016/02/iron-man-wallpaper-22.jpg"));
+								List<CardAction> cardButtons = new List<CardAction>();
+								CardAction plButton = new CardAction()
+								{
+									Value = "https://en.wikipedia.org/wiki/Iron_Man",
+									Type = "openUrl",
+									Title = "Ironman Wiki"
+								};
+								cardButtons.Add(plButton);
+								HeroCard plCard = new HeroCard()
+								{
+									Title = message.MessageText,
+									Subtitle = "Triggered Iron Man Card",
+									Images = cardImages,
+									Buttons = cardButtons
+								};
+								Attachment plAttachment = plCard.ToAttachment();
+								replyToConversation.Attachments.Add(plAttachment);
+								await client.Conversations.ReplyToActivityAsync(replyToConversation);
+							}
+							break;
+
+					}
+				}
+				catch (Exception ex)
+				{
+				}
+			}
+			//수정끝
+
+
+			string cashOrgMent = "";
 
             //DbConnect db = new DbConnect();
             //DButil dbutil = new DButil();
@@ -119,6 +177,7 @@ namespace TimeSolution
                 }
             };
             
+
             if (activity.Type == ActivityTypes.ConversationUpdate && activity.MembersAdded.Any(m => m.Id == activity.Recipient.Id))
             {
                 startTime = DateTime.Now;
@@ -587,7 +646,8 @@ namespace TimeSolution
             {
                 HandleSystemMessage(activity);
             }
-            response = Request.CreateResponse(HttpStatusCode.OK);
+
+			response = Request.CreateResponse(HttpStatusCode.OK);
             return response;
 
         }
@@ -623,5 +683,5 @@ namespace TimeSolution
             };
             return heroCard.ToAttachment();
         }
-    }
+	}
 }
