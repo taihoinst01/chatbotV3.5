@@ -92,9 +92,11 @@ namespace TimeSolution
 							activity.Text = activity.RemoveRecipientMention();
 							await Conversation.SendAsync(activity, () => new ProactiveBusiness());
 							break;
-						case ActivityTypes.Trigger:
-							ITriggerActivity trigger = (ITriggerActivity)activity;
-							var message = JsonConvert.DeserializeObject<QueueMessage>(((JObject)trigger.Value).GetValue("Message").ToString());
+
+                        case ActivityTypes.Event:
+							IEventActivity trigger = (IEventActivity)activity;
+                            DButil.HistoryLog("****** Trigger Test ******");
+                            var message = JsonConvert.DeserializeObject<QueueMessage>(((JObject)trigger.Value).GetValue("Message").ToString());
 							if (!string.IsNullOrEmpty(message.MessageText))
 							{
 								var messageactivity = (Activity)message.ResumptionCookie.GetMessage();
